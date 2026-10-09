@@ -1,0 +1,18 @@
+[
+  {
+    "id": "welcome-demo",
+    "title": "欢迎使用班级信息服务平台（演示通知）",
+    "date": "2026-10-08",
+    "category": "平台说明",
+    "important": true,
+    "body": "这是演示数据。正式通知请由班级管理员修改 public/data/notices.json 后提交。网站提供资料下载及躬行楼房间定位；未校对的路线不会作为正式导航展示。"
+  },
+  {
+    "id": "map-demo",
+    "title": "躬行楼地图已上线（演示通知）",
+    "date": "2026-10-07",
+    "category": "地图更新",
+    "important": false,
+    "body": "六层地图来自工作区中的原始 PDF。房间标签已自动提取，房门和连通关系仍需人工校对。"
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "coordinateSystem": "normalized",
+  "nodes": [],
+  "edges": [],
+  "note": "仅在人工核对后添加房门、走廊和跨层通道。未验证边不会用于正式路线。"
+}

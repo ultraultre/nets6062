@@ -40,7 +40,7 @@ npm run preview
 
 把经确认可公开的文件加入 `document/`，运行 `npm run prepare:data` 或 `npm run build`。脚本递归扫描、保留中文和空格文件名、跳过隐藏/临时文件，把可公开文件复制到 `public/downloads/`，生成 `public/data/files.json`。网页链接逐段 URL 编码，支持 GitHub Pages 项目子路径。
 
-发布前必须审查新增文件内容。需要暂缓公开的相对文件名写进 `document-review.json` 的 `exclude` 数组，且在公开仓库中加入 `.gitignore`。脚本将其列入 `public/data/pending-files.json`，不会复制到公开目录。当前“最佳团日”评分方案 PDF 含联系电话，因此暂缓发布并已从 Git 跟踪中排除；空白研究生请假单已收录。若拥有该 PDF 的公开授权，确认联系方式可公开后，从排除表和 `.gitignore` 中移除并重新构建。单个文件超过 100 MiB 会列为待处理，不会静默忽略；建议压缩或改为其他获授权的文件托管方式。请勿上传学生名单、身份证号、联系方式、成绩、账号密钥等隐私内容。GitHub 仓库本身若设为公开，`document/` 中未被忽略的原文件也会公开；发布前应先移走不适合公开的源文件或使用私有源仓库。
+发布前必须审查新增文件内容。需要暂缓公开的相对文件名写进 `document-review.json` 的 `exclude` 数组，且在公开仓库中加入 `.gitignore`。脚本将其列入 `public/data/pending-files.json`，不会复制到公开目录。当前已按用户要求开放 `document/` 中全部 4 个文件的下载，`document-review.json` 的排除表为空。单个文件超过 100 MiB 会列为待处理，不会静默忽略；建议压缩或改为其他获授权的文件托管方式。请勿上传学生名单、身份证号、联系方式、成绩、账号密钥等隐私内容。GitHub 仓库本身若设为公开，`document/` 中未被忽略的原文件也会公开；发布前应先移走不适合公开的源文件或使用私有源仓库。
 
 ### 更新 PDF 地图与房间
 

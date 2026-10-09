@@ -28,13 +28,15 @@ describe('static data and assets', () => {
     }
     const pending = read('pending-files.json');
     const policy = JSON.parse(fs.readFileSync(path.join(root, 'document-review.json'), 'utf8'));
-    const held = policy.exclude.find((name: string) => name.includes('最佳团日'));
-    expect(held).toBeTruthy();
-    expect(files.some((f: {relativePath:string}) => f.relativePath === held)).toBe(false);
-    expect(fs.existsSync(path.join(root, 'public', 'downloads', held))).toBe(false);
-    if (fs.existsSync(path.join(root, 'document', held))) {
-      expect(pending.some((f: {name:string}) => f.name === held)).toBe(true);
+    for (const held of policy.exclude) {
+      expect(files.some((f: {relativePath:string}) => f.relativePath === held)).toBe(false);
+      expect(fs.existsSync(path.join(root, 'public', 'downloads', held))).toBe(false);
+      if (fs.existsSync(path.join(root, 'document', held))) {
+        expect(pending.some((f: {name:string}) => f.name === held)).toBe(true);
+      }
     }
+    const expected = fs.readdirSync(path.join(root, 'document')).filter(name => !name.startsWith('.') && !policy.exclude.includes(name));
+    expect(files.map((f: {relativePath:string}) => f.relativePath).sort()).toEqual(expected.sort());
   });
   it('encodes Chinese and special characters under project and user page bases', () => {
     expect(assetUrl('downloads/请假 单.docx', '/project-name/')).toBe('/project-name/downloads/%E8%AF%B7%E5%81%87%20%E5%8D%95.docx');

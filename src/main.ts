@@ -1,6 +1,7 @@
 import './styles.css';
 import type { DownloadFile, Floor, Graph, Notice, Room, SharedTool, Todo } from './types';
 import { assetUrl, escapeHtml as h, humanSize } from './utils/paths';
+import { isExpired, parseDeadline, partitionFiles, todoStatus } from './utils/deadlines.js';
 import { floorAt, parseRoomId, routeForRooms, searchRooms, segmentRoute, toSvgPoint, type Route } from './navigation/core';
 
 type Page = 'home' | 'notices' | 'files' | 'map' | 'todos' | 'todo' | 'tools';
@@ -33,9 +34,10 @@ function layout(content: string) {
 function pageHead(eyebrow: string, title: string, desc: string) { return `<div class="page-heading"><h1>${title}</h1><p>${desc}</p></div>`; }
 function empty(message: string) { return `<div class="empty"><span>◎</span><p>${message}</p></div>`; }
 function noticeCard(n: Notice) { return `<button class="notice-card" data-notice="${h(n.id)}"><span class="notice-date">${h(n.date)} <b>·</b> ${h(n.category)}</span><strong>${h(n.title)}</strong><span class="notice-tail">${n.important ? '<em>重要</em>' : ''}<span>查看 ↗</span></span></button>`; }
-function sortedTodos() { return [...todos].sort((a, b) => a.dueAt.localeCompare(b.dueAt) || a.startAt.localeCompare(b.startAt)); }
+function sortedTodos() { const now = Date.now(); return [...todos].sort((a, b) => Number(isExpired(a.dueAt, now)) - Number(isExpired(b.dueAt, now)) || (parseDeadline(a.dueAt) ?? Infinity) - (parseDeadline(b.dueAt) ?? Infinity)); }
+function todoBadge(todo: Todo, now = Date.now()) { return `<span class="deadline-badge ${isExpired(todo.dueAt, now) ? 'ended' : ''}" data-todo-status="${h(todo.id)}">${todoStatus(todo, now)}</span>`; }
 function todoTable(items: Todo[]) {
-  return `<div class="todo-table-wrap"><table class="todo-table"><thead><tr><th scope="col">内容</th><th scope="col">要求</th><th scope="col">开始时间 / 截止时间</th><th scope="col"><span class="sr-only">操作</span></th></tr></thead><tbody>${items.map(todo => `<tr><td data-label="内容"><strong>${h(todo.content)}</strong></td><td data-label="要求">${h(todo.requirements)}</td><td data-label="时间"><span class="todo-dates"><span>开始 ${h(todo.startAt)}</span><span>截止 ${h(todo.dueAt)}</span></span></td><td class="todo-action"><button class="todo-detail-link" data-todo="${h(todo.id)}" aria-label="查看${h(todo.content)}详情">查看详情 →</button></td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="todo-table-wrap"><table class="todo-table"><thead><tr><th scope="col">内容</th><th scope="col">要求</th><th scope="col">开始时间 / 截止时间（UTC+8）</th><th scope="col"><span class="sr-only">操作</span></th></tr></thead><tbody>${items.map(todo => `<tr><td data-label="内容"><strong>${h(todo.content)}</strong>${todoBadge(todo)}</td><td data-label="要求">${h(todo.requirements)}</td><td data-label="时间"><span class="todo-dates"><span>开始 ${h(todo.startAt)}</span><span>截止 ${h(todo.dueAt)}</span></span></td><td class="todo-action"><button class="todo-detail-link" data-todo="${h(todo.id)}" aria-label="查看${h(todo.content)}详情">查看详情 →</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 function toolUrl(value: string) { try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) ? url.href : null; } catch { return null; } }
 function toolCard(tool: SharedTool) {
@@ -45,11 +47,12 @@ function toolCard(tool: SharedTool) {
 
 function home() {
   const pinned = notices.filter(n => n.important).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 2);
+  const activeFiles = partitionFiles(files).active;
   layout(`<section class="hero"><div class="hero-content"><span class="hero-kicker"><i></i> S6062服务平台</span><h1>通知 · 文件<br><span>还有地图</span></h1><p>今天也别忘了看通知呀 ( •̀ ω •́ )✧</p><div class="hero-actions"><button class="btn btn-primary" data-page="notices">查看通知 <span>↗</span></button><button class="btn btn-light" data-page="map">打开地图 <span>→</span></button></div></div><div class="hero-art" aria-hidden="true"><div class="art-ring ring-a"></div><div class="art-ring ring-b"></div><div class="art-card art-card-1"><span>◈</span><div>通知公告<small>谁又没看通知 (¬‿¬)</small></div></div><div class="art-card art-card-2"><span>⌖</span><div>躬行楼地图<small>走走走，别迷路 (ง •̀_•́)ง</small></div></div><div class="art-card art-card-3"><span>⇩</span><div>文件中心<small>需要就拿走 (๑•̀ㅂ•́)و✧</small></div></div></div></section>
-  <section class="section home-todos"><div class="section-title"><div><h2>你可能的待办清单</h2><p class="section-note">需要做什么、有什么要求、什么时候完成，一眼看清。</p></div><button class="text-link" data-page="todos">全部待办 →</button></div>${state.todoError ? empty(h(state.todoError)) : todos.length ? todoTable(sortedTodos().slice(0, 5)) : empty('暂无待办事项')}</section>
+  <section class="section home-todos"><div class="section-title"><div><h2>你可能的待办清单</h2><p class="section-note">ddl战神出列！(｀・ω・´)ゞ</p></div><button class="text-link" data-page="todos">全部待办 →</button></div>${state.todoError ? empty(h(state.todoError)) : todos.length ? todoTable(sortedTodos().slice(0, 5)) : empty('暂无待办事项')}</section>
   <section class="section two-col"><div><div class="section-title"><div><h2>通知</h2><p class="section-note">谁又没看通知 (¬‿¬)</p></div><button class="text-link" data-page="notices">全部通知 →</button></div>${pinned.length ? pinned.map(noticeCard).join('') : empty('暂无重要通知')}</div><div class="feature-card"><span class="feature-icon">⌖</span><h2>躬行楼<br>室内地图</h2><p>别迷路啦 (ง •̀_•́)ง</p><button class="btn btn-white" data-page="map">打开地图 <span>→</span></button><div class="feature-lines"></div></div></section>
-  <section class="section"><div class="section-title"><div><h2>文件下载</h2><p class="section-note">需要就拿走 (๑•̀ㅂ•́)و✧</p></div><button class="text-link" data-page="files">全部文件 →</button></div><div class="file-preview">${files.length ? files.slice(0, 3).map(f => `<div class="preview-row"><span class="file-icon">${icon(f.extension)}</span><span><strong>${h(f.name)}</strong><small>${h(f.category)} · ${humanSize(f.size)}</small></span><a href="${assetUrl(`downloads/${f.relativePath}`)}" download="${h(f.name)}" aria-label="下载${h(f.name)}">⇩</a></div>`).join('') : empty('暂无可公开的文件')}</div></section>
-  <section class="section"><div class="section-title"><div><h2>工具分享</h2><p class="section-note">平日发现的好用工具，放在这里分享给大家。</p></div><button class="text-link" data-page="tools">全部工具 →</button></div>${state.toolsError ? empty(h(state.toolsError)) : sharedTools.length ? `<div class="tool-grid">${[...sharedTools].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map(toolCard).join('')}</div>` : empty('暂无工具分享')}</section>
+  <section class="section"><div class="section-title"><div><h2>文件下载</h2><p class="section-note">需要就拿走 (๑•̀ㅂ•́)و✧</p></div><button class="text-link" data-page="files">全部文件 →</button></div><div class="file-preview">${activeFiles.length ? activeFiles.slice(0, 3).map(f => `<div class="preview-row"><span class="file-icon">${icon(f.extension)}</span><span><strong>${h(f.name)}</strong><small>${h(f.category)} · ${humanSize(f.size)} &middot; ${fileDeadline(f)}</small></span><a href="${assetUrl(`downloads/${f.relativePath}`)}" download="${h(f.name)}" aria-label="下载${h(f.name)}">⇩</a></div>`).join('') : empty('暂无可公开的文件')}</div></section>
+  <section class="section"><div class="section-title"><div><h2>工具分享</h2><p class="section-note">AI工具精选（真精选么）</p></div><button class="text-link" data-page="tools">全部工具 →</button></div>${state.toolsError ? empty(h(state.toolsError)) : sharedTools.length ? `<div class="tool-grid">${[...sharedTools].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map(toolCard).join('')}</div>` : empty('暂无工具分享')}</section>
   <div class="home-signoff">今天也辛苦啦 ( ´ ▽ ｀ )ﾉ</div>`);
 }
 
@@ -75,7 +78,7 @@ function todoDetailPage() {
   let id = '';
   try { id = decodeURIComponent(location.hash.slice('#todo/'.length)); } catch { /* Invalid route shows the missing item state. */ }
   const todo = todos.find(item => item.id === id);
-  layout(`<div class="container content-page"><button class="text-link back-link" data-page="todos">← 返回待办清单</button>${todo ? `<article class="todo-detail"><span class="detail-kicker">待办详情</span><h1>${h(todo.content)}</h1><div class="detail-grid"><div><span>开始时间</span><strong>${h(todo.startAt)}</strong></div><div><span>截止时间</span><strong>${h(todo.dueAt)}</strong></div></div><section><h2>要求</h2><p>${h(todo.requirements).replace(/\n/g, '<br>')}</p></section><section><h2>详细说明</h2><p>${h(todo.details).replace(/\n/g, '<br>')}</p></section></article>` : empty('未找到这条待办事项')}</div>`);
+  layout(`<div class="container content-page"><button class="text-link back-link" data-page="todos">← 返回待办清单</button>${todo ? `<article class="todo-detail"><span class="detail-kicker">待办详情</span><h1>${h(todo.content)}</h1>${todoBadge(todo)}<div class="detail-grid"><div><span>开始时间（UTC+8）</span><strong>${h(todo.startAt)}</strong></div><div><span>截止时间（UTC+8）</span><strong>${h(todo.dueAt)}</strong></div></div><section><h2>要求</h2><p>${h(todo.requirements).replace(/\n/g, '<br>')}</p></section><section><h2>详细说明</h2><p>${h(todo.details).replace(/\n/g, '<br>')}</p></section></article>` : empty('未找到这条待办事项')}</div>`);
 }
 
 function toolsPage() {
@@ -83,15 +86,30 @@ function toolsPage() {
   layout(`<div class="container content-page">${pageHead('TOOL SHARING', '工具分享', '平日想分享给大家的工具，都在这里。')}${state.toolsError ? empty(h(state.toolsError)) : sorted.length ? `<div class="tool-grid">${sorted.map(toolCard).join('')}</div>` : empty('暂无工具分享')}</div>`);
 }
 
+function fileDeadline(file: DownloadFile, now = Date.now()) {
+  if (!file.dueAt) return '长期有效';
+  if (parseDeadline(file.dueAt) === null) return '截止时间待确认';
+  return `${isExpired(file.dueAt, now) ? '已过期 · ' : ''}截止 ${h(file.dueAt)}（UTC+8）`;
+}
+function fileRow(file: DownloadFile, now: number) {
+  return `<article class="file-row"><div class="file-icon">${icon(file.extension)}</div><div class="file-info"><h3>${h(file.name)}</h3><p>${h(file.category)} <span>·</span> ${file.extension.toUpperCase()} <span>·</span> ${humanSize(file.size)}</p><p class="file-deadline ${isExpired(file.dueAt, now) ? 'ended' : ''}">${fileDeadline(file, now)}</p></div><a class="download" href="${assetUrl(`downloads/${file.relativePath}`)}" download="${h(file.name)}">下载 <span>↓</span></a></article>`;
+}
+function updateFileList(now = Date.now()) {
+  const groups = partitionFiles(files, now);
+  const pool = state.fileCategory === '过期文件' ? groups.expired : groups.active;
+  const matches = pool.filter(file => (['全部', '过期文件'].includes(state.fileCategory) || file.category === state.fileCategory) && file.name.toLowerCase().includes(state.fileQuery.toLowerCase()));
+  document.querySelector('.count')!.textContent = `${matches.length} 个文件`;
+  document.querySelector('.file-list')!.innerHTML = state.fileError ? empty(h(state.fileError)) : matches.length ? matches.map(file => fileRow(file, now)).join('') : empty(state.fileCategory === '过期文件' ? '暂无过期文件' : '没有找到符合条件的有效文件');
+  const archiveButton = document.querySelector('[data-category="过期文件"]');
+  if (archiveButton) archiveButton.textContent = `过期文件（${groups.expired.length}）`;
+}
 function filesPage() {
-  const categories = ['全部', ...new Set(files.map(f => f.category))];
-  const filtered = files.filter(f => (state.fileCategory === '全部' || f.category === state.fileCategory) && f.name.toLowerCase().includes(state.fileQuery.toLowerCase()));
-  layout(`<div class="container">${pageHead('RESOURCE LIBRARY', '文件下载', '需要就拿走 (๑•̀ㅂ•́)و✧')}<div class="toolbar"><label class="search"><span>⌕</span><input id="file-search" type="search" placeholder="搜索文件名称" value="${h(state.fileQuery)}" /></label><span class="count">${filtered.length} 个文件</span></div><div class="tabs" role="group" aria-label="文件分类">${categories.map(c => `<button data-category="${h(c)}" class="${state.fileCategory === c ? 'selected' : ''}">${h(c)}</button>`).join('')}</div><div class="file-list">${state.fileError ? empty(h(state.fileError)) : filtered.length ? filtered.map(f => `<article class="file-row"><div class="file-icon">${icon(f.extension)}</div><div class="file-info"><h3>${h(f.name)}</h3><p>${h(f.category)} <span>·</span> ${f.extension.toUpperCase()} <span>·</span> ${humanSize(f.size)}</p></div><a class="download" href="${assetUrl(`downloads/${f.relativePath}`)}" download="${h(f.name)}">下载 <span>↓</span></a></article>`).join('') : empty('该分类下暂无文件')}</div><p class="privacy-note"></p></div>`);
-  document.querySelector<HTMLInputElement>('#file-search')?.addEventListener('input', e => {
-    state.fileQuery = (e.target as HTMLInputElement).value;
-    const matches = files.filter(f => (state.fileCategory === '全部' || f.category === state.fileCategory) && f.name.toLowerCase().includes(state.fileQuery.toLowerCase()));
-    document.querySelector('.count')!.textContent = `${matches.length} 个文件`;
-    document.querySelector('.file-list')!.innerHTML = matches.length ? matches.map(f => `<article class="file-row"><div class="file-icon">${icon(f.extension)}</div><div class="file-info"><h3>${h(f.name)}</h3><p>${h(f.category)} <span>·</span> ${f.extension.toUpperCase()} <span>·</span> ${humanSize(f.size)}</p></div><a class="download" href="${assetUrl(`downloads/${f.relativePath}`)}" download="${h(f.name)}">下载 <span>↓</span></a></article>`).join('') : empty('该分类下暂无文件');
+  const categories = ['全部', ...new Set(files.map(file => file.category)), '过期文件'];
+  layout(`<div class="container">${pageHead('RESOURCE LIBRARY', '文件下载', '截止时间按 UTC+8 计算，到期文件自动归入“过期文件”。')}<div class="toolbar"><label class="search"><span>⌕</span><input id="file-search" type="search" placeholder="搜索文件名称" value="${h(state.fileQuery)}" /></label><span class="count"></span></div><div class="tabs" role="group" aria-label="文件目录">${categories.map(category => `<button data-category="${h(category)}" class="${state.fileCategory === category ? 'selected' : ''}">${h(category)}</button>`).join('')}</div><div class="file-list"></div><p class="privacy-note">过期文件保留下载，未设置截止时间的文件长期有效。</p></div>`);
+  updateFileList();
+  document.querySelector<HTMLInputElement>('#file-search')?.addEventListener('input', event => {
+    state.fileQuery = (event.target as HTMLInputElement).value;
+    updateFileList();
   });
 }
 
@@ -212,5 +230,26 @@ async function init() {
   if (results[5].status === 'rejected') state.todoError = String(results[5].reason);
   if (results[6].status === 'rejected') state.toolsError = String(results[6].reason);
   render();
+  let signature = deadlineSignature();
+  let timer: ReturnType<typeof setTimeout>;
+  function refreshDeadlines() {
+    const next = deadlineSignature();
+    if (next !== signature) {
+      signature = next;
+      if (state.page === 'files') updateFileList();
+      else if (['home', 'todos', 'todo'].includes(state.page)) render();
+    }
+    clearTimeout(timer);
+    const now = Date.now();
+    const upcoming = [...todos.flatMap(todo => [todo.startAt, todo.dueAt]), ...files.map(file => file.dueAt)].map(parseDeadline).filter((time): time is number => time !== null && time > now);
+    timer = setTimeout(refreshDeadlines, Math.min(60_000, Math.max(1, Math.min(...upcoming) - now)));
+  }
+  refreshDeadlines();
+  window.addEventListener('focus', refreshDeadlines);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshDeadlines(); });
+}
+function deadlineSignature() {
+  const now = Date.now();
+  return JSON.stringify([todos.map(todo => todoStatus(todo, now)), files.map(file => isExpired(file.dueAt, now))]);
 }
 init();

@@ -1,10 +1,10 @@
 [
   {
-    "id": "demo-zotero-20261010",
-    "title": "【演示】Zotero 文献管理",
+    "id": "20261010-1",
+    "title": "PPT的好用skills",
     "date": "2026-10-10",
     "category": "学习工具",
-    "description": "收集、整理和引用文献时可以试试 Zotero。这条内容用于预览工具分享卡片的效果。",
-    "url": "https://www.zotero.org/"
+    "description": "open-kimi-ppt-skill 比较好用，大家制作ppt时可以参考",
+    "url": "https://github.com/acnlie/open-kimi-ppt-skill"
   }
 ]

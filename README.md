@@ -34,11 +34,11 @@ npm run preview
 
 ### 通知
 
-编辑 `public/data/notices.json`。每条通知包含 `id`、`title`、`date`（`YYYY-MM-DD`）、`category`、`important` 和 `body`。重要通知置顶，其余按日期倒序。直接提交 JSON 即可通过 Actions 更新站点，不需在线管理后台。
+编辑 `public/data/notices.json`。每条通知包含 `id`、`title`、`date`（`YYYY-MM-DD`）、`category`、`important` 和 `body`。重要通知置顶，其余按日期倒序。直接提交 JSON 即可通过 Actions 更新站点，不需在线管理后台。各数据数组的 `id` 必须非空且在本文件内唯一，不同文件可以使用相同 ID。ID 不要求固定命名格式，建议保持稳定；数组中的对象之间必须加逗号。
 
 ### 待办清单
 
-编辑 `public/data/todos.json`，像通知一样在数组中添加事项。每项包含唯一的 `id`、`content`（内容）、`requirements`（要求）、`startAt`（开始时间）、`dueAt`（截止时间）和 `details`（详情正文）。建议时间使用 `YYYY-MM-DD HH:mm` 格式；列表按截止时间升序显示。首页展示最近 5 项，点击“查看详情”进入独立详情页。示例：
+编辑 `public/data/todos.json`，像通知一样在数组中添加事项。每项包含唯一的 `id`、`content`（内容）、`requirements`（要求）、`startAt`（开始时间）、`dueAt`（截止时间）和 `details`（详情正文）。时间使用 `YYYY-MM-DD HH:mm` 格式，统一按 UTC+8 解析，也支持 `2026-10-20T18:00:00+08:00`。到达截止时间显示“已经结束”；开始前显示“未开始”，期间显示“进行中”。未结束事项优先，其内按截止时间升序显示。首页展示前 5 项，点击“查看详情”进入独立详情页。页面停留期间自动更新状态，浏览器恢复前台时重新检查。示例：
 
 ```json
 [
@@ -70,11 +70,22 @@ npm run preview
 ]
 ```
 
-目前两个数据文件都是空数组，可以直接填入真实内容后提交更新。静态站点本身没有在线管理后台，修改只会在发布新版本后对所有访客生效。
+静态站点本身没有在线管理后台，修改数据只会在发布新版本后对所有访客生效。运行开发或构建命令时会检查这三个文件的 JSON 格式、ID 唯一性及待办起止时间。
 
 ### 文件下载
 
 把经确认可公开的文件加入 `document/`，运行 `npm run prepare:data` 或 `npm run build`。脚本递归扫描、保留中文和空格文件名、跳过隐藏/临时文件，把可公开文件复制到 `public/downloads/`，生成 `public/data/files.json`。网页链接逐段 URL 编码，支持 GitHub Pages 项目子路径。
+
+文件截止时间配置在 `public/data/file-deadlines.json`，键是相对于 `document/` 的路径（子目录使用 `/`），值为 UTC+8 时间或 `null`。例如：
+
+```json
+{
+  "报名表.docx": "2026-10-20 18:00",
+  "资料/说明.pdf": null
+}
+```
+
+配置后重新运行 `npm run prepare:data` 或构建；不要直接修改自动生成的 `files.json`，它会被覆盖。`null` 或未配置表示“长期有效”。现有 9 个文件的截止时间按用户要求统一暂设为四年后的 `2030-10-10 23:59`（UTC+8），可逐项修改。到期后，文件会自动从首页预览及普通分类移入网页的“过期文件”目录，仍能搜索和下载。归档是页面中的动态目录，源文件和下载路径保持稳定；静态网站无需重新构建即可显示到期状态。判断使用访问设备的当前时间，所有时间字符串均按 UTC+8 解释。
 
 发布前必须审查新增文件内容。需要暂缓公开的相对文件名写进 `document-review.json` 的 `exclude` 数组，且在公开仓库中加入 `.gitignore`。脚本将其列入 `public/data/pending-files.json`，不会复制到公开目录。当前已按用户要求开放 `document/` 中全部 4 个文件的下载，`document-review.json` 的排除表为空。单个文件超过 100 MiB 会列为待处理，不会静默忽略；建议压缩或改为其他获授权的文件托管方式。请勿上传学生名单、身份证号、联系方式、成绩、账号密钥等隐私内容。GitHub 仓库本身若设为公开，`document/` 中未被忽略的原文件也会公开；发布前应先移走不适合公开的源文件或使用私有源仓库。
 

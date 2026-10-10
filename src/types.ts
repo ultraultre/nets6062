@@ -7,4 +7,4 @@ export type Graph = { version: number; nodes: GraphNode[]; edges: GraphEdge[] };
 export type Notice = { id: string; title: string; date: string; category: string; important: boolean; body: string };
 export type Todo = { id: string; content: string; requirements: string; startAt: string; dueAt: string; details: string };
 export type SharedTool = { id: string; title: string; date: string; category: string; description: string; url: string };
-export type DownloadFile = { name: string; relativePath: string; extension: string; size: number; category: string };
+export type DownloadFile = { name: string; relativePath: string; extension: string; size: number; category: string; dueAt?: string | null };

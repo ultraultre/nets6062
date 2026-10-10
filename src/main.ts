@@ -1,15 +1,15 @@
 import './styles.css';
-import type { DownloadFile, Floor, Graph, Notice, Room } from './types';
+import type { DownloadFile, Floor, Graph, Notice, Room, SharedTool, Todo } from './types';
 import { assetUrl, escapeHtml as h, humanSize } from './utils/paths';
 import { floorAt, parseRoomId, routeForRooms, searchRooms, segmentRoute, toSvgPoint, type Route } from './navigation/core';
 
-type Page = 'home' | 'notices' | 'files' | 'map';
+type Page = 'home' | 'notices' | 'files' | 'map' | 'todos' | 'todo' | 'tools';
 const app = document.querySelector<HTMLDivElement>('#app')!;
-const state: { page: Page; floor: number; zoom: number; start: string; end: string; route: Route | null; noticeQuery: string; fileQuery: string; fileCategory: string; noticeId: string | null; noticeError: string | null; fileError: string | null } = {
-  page: 'home', floor: 1, zoom: 1, start: '', end: '', route: null, noticeQuery: '', fileQuery: '', fileCategory: '全部', noticeId: null, noticeError: null, fileError: null,
+const state: { page: Page; floor: number; zoom: number; start: string; end: string; route: Route | null; noticeQuery: string; fileQuery: string; fileCategory: string; noticeId: string | null; noticeError: string | null; fileError: string | null; todoError: string | null; toolsError: string | null } = {
+  page: 'home', floor: 1, zoom: 1, start: '', end: '', route: null, noticeQuery: '', fileQuery: '', fileCategory: '全部', noticeId: null, noticeError: null, fileError: null, todoError: null, toolsError: null,
 };
-let notices: Notice[] = [], files: DownloadFile[] = [], rooms: Room[] = [], floors: Floor[] = [], graph: Graph = { version: 1, nodes: [], edges: [] };
-const pathMap: Record<string, Page> = { home: 'home', notices: 'notices', files: 'files', map: 'map' };
+let notices: Notice[] = [], todos: Todo[] = [], sharedTools: SharedTool[] = [], files: DownloadFile[] = [], rooms: Room[] = [], floors: Floor[] = [], graph: Graph = { version: 1, nodes: [], edges: [] };
+const pathMap: Record<string, Page> = { home: 'home', notices: 'notices', files: 'files', map: 'map', todos: 'todos', todo: 'todo', tools: 'tools' };
 
 async function json<T>(path: string): Promise<T> {
   const response = await fetch(assetUrl(path));
@@ -17,13 +17,13 @@ async function json<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function currentPage(): Page { return pathMap[location.hash.slice(1)] || 'home'; }
+function currentPage(): Page { return pathMap[location.hash.slice(1).split('/')[0]] || 'home'; }
 function setPage(page: Page) { location.hash = page; state.page = page; state.noticeId = null; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function icon(ext: string) { return ({ pdf: 'PDF', doc: 'DOC', docx: 'DOC', xls: 'XLS', xlsx: 'XLS', ppt: 'PPT', pptx: 'PPT', zip: 'ZIP' } as Record<string, string>)[ext] || ext.slice(0, 4).toUpperCase(); }
 
 function layout(content: string) {
-  const nav: [Page, string][] = [['home', '首页'], ['notices', '通知公告'], ['files', '文件下载'], ['map', '躬行楼导航']];
-  app.innerHTML = `<header class="site-header"><div class="header-inner"><a class="brand" href="#home" aria-label="班级信息服务平台首页"><span class="brand-mark">班</span><span><strong>班级信息服务平台</strong><small>早上中午晚上凌晨好~ (｡•ᴗ•｡)</small></span></a><nav class="nav" aria-label="主导航">${nav.map(([id, label]) => `<a href="#${id}" class="${state.page === id ? 'active' : ''}" ${state.page === id ? 'aria-current="page"' : ''}>${label}</a>`).join('')}</nav><button class="theme-button" id="theme-toggle" aria-label="切换明暗模式">◐</button></div></header><main>${content}</main><footer class="footer"><div class="footer-inner"><div><strong>班级信息服务平台</strong><p>摸鱼中。。。 ( ´ ▽ ｀ )ﾉ</p></div><p>通知 · 文件 · 地图</p></div></footer>`;
+  const nav: [Page, string][] = [['home', '首页'], ['todos', '待办清单'], ['notices', '通知公告'], ['tools', '工具分享'], ['files', '文件下载'], ['map', '躬行楼导航']];
+  app.innerHTML = `<header class="site-header"><div class="header-inner"><a class="brand" href="#home" aria-label="班级信息服务平台首页"><span class="brand-mark">班</span><span><strong>班级信息服务平台</strong><small>早上中午晚上凌晨好~ (｡•ᴗ•｡)</small></span></a><nav class="nav" aria-label="主导航">${nav.map(([id, label]) => `<a href="#${id}" class="${state.page === id || (state.page === 'todo' && id === 'todos') ? 'active' : ''}" ${state.page === id || (state.page === 'todo' && id === 'todos') ? 'aria-current="page"' : ''}>${label}</a>`).join('')}</nav><button class="theme-button" id="theme-toggle" aria-label="切换明暗模式">◐</button></div></header><main>${content}</main><footer class="footer"><div class="footer-inner"><div><strong>班级信息服务平台</strong><p>摸鱼中。。。 ( ´ ▽ ｀ )ﾉ</p></div><p>待办 · 通知 · 工具 · 文件 · 地图</p></div></footer>`;
   document.querySelector('#theme-toggle')?.addEventListener('click', () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next; localStorage.setItem('theme', next);
@@ -33,13 +33,23 @@ function layout(content: string) {
 function pageHead(eyebrow: string, title: string, desc: string) { return `<div class="page-heading"><h1>${title}</h1><p>${desc}</p></div>`; }
 function empty(message: string) { return `<div class="empty"><span>◎</span><p>${message}</p></div>`; }
 function noticeCard(n: Notice) { return `<button class="notice-card" data-notice="${h(n.id)}"><span class="notice-date">${h(n.date)} <b>·</b> ${h(n.category)}</span><strong>${h(n.title)}</strong><span class="notice-tail">${n.important ? '<em>重要</em>' : ''}<span>查看 ↗</span></span></button>`; }
+function sortedTodos() { return [...todos].sort((a, b) => a.dueAt.localeCompare(b.dueAt) || a.startAt.localeCompare(b.startAt)); }
+function todoTable(items: Todo[]) {
+  return `<div class="todo-table-wrap"><table class="todo-table"><thead><tr><th scope="col">内容</th><th scope="col">要求</th><th scope="col">开始时间 / 截止时间</th><th scope="col"><span class="sr-only">操作</span></th></tr></thead><tbody>${items.map(todo => `<tr><td data-label="内容"><strong>${h(todo.content)}</strong></td><td data-label="要求">${h(todo.requirements)}</td><td data-label="时间"><span class="todo-dates"><span>开始 ${h(todo.startAt)}</span><span>截止 ${h(todo.dueAt)}</span></span></td><td class="todo-action"><button class="todo-detail-link" data-todo="${h(todo.id)}" aria-label="查看${h(todo.content)}详情">查看详情 →</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+function toolUrl(value: string) { try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) ? url.href : null; } catch { return null; } }
+function toolCard(tool: SharedTool) {
+  const url = toolUrl(tool.url);
+  return `<article class="tool-card"><span class="notice-date">${h(tool.date)} · ${h(tool.category)}</span><h3>${h(tool.title)}</h3><p>${h(tool.description)}</p>${url ? `<a class="tool-open" href="${h(url)}" target="_blank" rel="noopener noreferrer">打开工具 ↗</a>` : '<span class="tool-unavailable">暂无有效链接</span>'}</article>`;
+}
 
 function home() {
   const pinned = notices.filter(n => n.important).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 2);
   layout(`<section class="hero"><div class="hero-content"><span class="hero-kicker"><i></i> S6062服务平台</span><h1>通知 · 文件<br><span>还有地图</span></h1><p>今天也别忘了看通知呀 ( •̀ ω •́ )✧</p><div class="hero-actions"><button class="btn btn-primary" data-page="notices">查看通知 <span>↗</span></button><button class="btn btn-light" data-page="map">打开地图 <span>→</span></button></div></div><div class="hero-art" aria-hidden="true"><div class="art-ring ring-a"></div><div class="art-ring ring-b"></div><div class="art-card art-card-1"><span>◈</span><div>通知公告<small>谁又没看通知 (¬‿¬)</small></div></div><div class="art-card art-card-2"><span>⌖</span><div>躬行楼地图<small>走走走，别迷路 (ง •̀_•́)ง</small></div></div><div class="art-card art-card-3"><span>⇩</span><div>文件中心<small>需要就拿走 (๑•̀ㅂ•́)و✧</small></div></div></div></section>
-  <section class="overview"><div class="metric"><span>01</span><strong>${notices.length}</strong><small>通知公告</small></div><div class="metric"><span>02</span><strong>${files.length}</strong><small>可下载文件</small></div><div class="metric"><span>03</span><strong>${floors.length || 6}</strong><small>楼层地图</small></div><div class="metric"><span>04</span><strong>${rooms.length.toLocaleString()}</strong><small>房间</small></div></section>
+  <section class="section home-todos"><div class="section-title"><div><h2>你可能的待办清单</h2><p class="section-note">需要做什么、有什么要求、什么时候完成，一眼看清。</p></div><button class="text-link" data-page="todos">全部待办 →</button></div>${state.todoError ? empty(h(state.todoError)) : todos.length ? todoTable(sortedTodos().slice(0, 5)) : empty('暂无待办事项')}</section>
   <section class="section two-col"><div><div class="section-title"><div><h2>通知</h2><p class="section-note">谁又没看通知 (¬‿¬)</p></div><button class="text-link" data-page="notices">全部通知 →</button></div>${pinned.length ? pinned.map(noticeCard).join('') : empty('暂无重要通知')}</div><div class="feature-card"><span class="feature-icon">⌖</span><h2>躬行楼<br>室内地图</h2><p>别迷路啦 (ง •̀_•́)ง</p><button class="btn btn-white" data-page="map">打开地图 <span>→</span></button><div class="feature-lines"></div></div></section>
   <section class="section"><div class="section-title"><div><h2>文件下载</h2><p class="section-note">需要就拿走 (๑•̀ㅂ•́)و✧</p></div><button class="text-link" data-page="files">全部文件 →</button></div><div class="file-preview">${files.length ? files.slice(0, 3).map(f => `<div class="preview-row"><span class="file-icon">${icon(f.extension)}</span><span><strong>${h(f.name)}</strong><small>${h(f.category)} · ${humanSize(f.size)}</small></span><a href="${assetUrl(`downloads/${f.relativePath}`)}" download="${h(f.name)}" aria-label="下载${h(f.name)}">⇩</a></div>`).join('') : empty('暂无可公开的文件')}</div></section>
+  <section class="section"><div class="section-title"><div><h2>工具分享</h2><p class="section-note">平日发现的好用工具，放在这里分享给大家。</p></div><button class="text-link" data-page="tools">全部工具 →</button></div>${state.toolsError ? empty(h(state.toolsError)) : sharedTools.length ? `<div class="tool-grid">${[...sharedTools].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map(toolCard).join('')}</div>` : empty('暂无工具分享')}</section>
   <div class="home-signoff">今天也辛苦啦 ( ´ ▽ ｀ )ﾉ</div>`);
 }
 
@@ -56,6 +66,22 @@ function noticesPage() {
 }
 
 function noticeDialog() { const n = notices.find(item => item.id === state.noticeId); return n ? `<div class="modal-backdrop" id="notice-backdrop"><article class="modal" role="dialog" aria-modal="true" aria-labelledby="notice-title"><button id="close-notice" class="close" aria-label="关闭">×</button><span class="notice-date">${h(n.date)} · ${h(n.category)}</span><h2 id="notice-title">${h(n.title)}</h2><p>${h(n.body).replace(/\n/g, '<br>')}</p></article></div>` : ''; }
+
+function todosPage() {
+  layout(`<div class="container content-page">${pageHead('TO DO LIST', '你可能的待办清单', '按截止时间排列，点击“查看详情”了解完整安排。')}${state.todoError ? empty(h(state.todoError)) : todos.length ? todoTable(sortedTodos()) : empty('暂无待办事项')}</div>`);
+}
+
+function todoDetailPage() {
+  let id = '';
+  try { id = decodeURIComponent(location.hash.slice('#todo/'.length)); } catch { /* Invalid route shows the missing item state. */ }
+  const todo = todos.find(item => item.id === id);
+  layout(`<div class="container content-page"><button class="text-link back-link" data-page="todos">← 返回待办清单</button>${todo ? `<article class="todo-detail"><span class="detail-kicker">待办详情</span><h1>${h(todo.content)}</h1><div class="detail-grid"><div><span>开始时间</span><strong>${h(todo.startAt)}</strong></div><div><span>截止时间</span><strong>${h(todo.dueAt)}</strong></div></div><section><h2>要求</h2><p>${h(todo.requirements).replace(/\n/g, '<br>')}</p></section><section><h2>详细说明</h2><p>${h(todo.details).replace(/\n/g, '<br>')}</p></section></article>` : empty('未找到这条待办事项')}</div>`);
+}
+
+function toolsPage() {
+  const sorted = [...sharedTools].sort((a, b) => b.date.localeCompare(a.date));
+  layout(`<div class="container content-page">${pageHead('TOOL SHARING', '工具分享', '平日想分享给大家的工具，都在这里。')}${state.toolsError ? empty(h(state.toolsError)) : sorted.length ? `<div class="tool-grid">${sorted.map(toolCard).join('')}</div>` : empty('暂无工具分享')}</div>`);
+}
 
 function filesPage() {
   const categories = ['全部', ...new Set(files.map(f => f.category))];
@@ -151,11 +177,12 @@ async function exportMap() {
   }, 'image/png');
 }
 
-function render() { state.page = currentPage(); if (state.page === 'notices') noticesPage(); else if (state.page === 'files') filesPage(); else if (state.page === 'map') mapPage(); else home(); }
+function render() { state.page = currentPage(); if (state.page === 'notices') noticesPage(); else if (state.page === 'todos') todosPage(); else if (state.page === 'todo') todoDetailPage(); else if (state.page === 'tools') toolsPage(); else if (state.page === 'files') filesPage(); else if (state.page === 'map') mapPage(); else home(); }
 
 document.addEventListener('click', e => {
   const target = e.target as HTMLElement;
   const pageButton = target.closest<HTMLElement>('[data-page]'); if (pageButton) { setPage(pageButton.dataset.page as Page); return; }
+  const todoButton = target.closest<HTMLElement>('[data-todo]'); if (todoButton) { location.hash = `todo/${encodeURIComponent(todoButton.dataset.todo!)}`; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
   const noticeButton = target.closest<HTMLElement>('[data-notice]'); if (noticeButton) { state.noticeId = noticeButton.dataset.notice!; state.page = 'notices'; location.hash = 'notices'; noticesPage(); return; }
   if (target.id === 'close-notice' || target.id === 'notice-backdrop') { state.noticeId = null; noticesPage(); return; }
   const category = target.closest<HTMLElement>('[data-category]'); if (category) { state.fileCategory = category.dataset.category!; filesPage(); return; }
@@ -172,14 +199,18 @@ window.addEventListener('hashchange', render);
 document.documentElement.dataset.theme = localStorage.getItem('theme') || 'light';
 
 async function init() {
-  const results = await Promise.allSettled([json<Notice[]>('data/notices.json'), json<DownloadFile[]>('data/files.json'), json<Room[]>('data/rooms.json'), json<Floor[]>('data/floors.json'), json<Graph>('data/graph.json')]);
+  const results = await Promise.allSettled([json<Notice[]>('data/notices.json'), json<DownloadFile[]>('data/files.json'), json<Room[]>('data/rooms.json'), json<Floor[]>('data/floors.json'), json<Graph>('data/graph.json'), json<Todo[]>('data/todos.json'), json<SharedTool[]>('data/tools.json')]);
   if (results[0].status === 'fulfilled') notices = results[0].value;
   if (results[1].status === 'fulfilled') files = results[1].value;
   if (results[2].status === 'fulfilled') rooms = results[2].value;
   if (results[3].status === 'fulfilled') floors = results[3].value;
   if (results[4].status === 'fulfilled') graph = results[4].value;
+  if (results[5].status === 'fulfilled') todos = results[5].value;
+  if (results[6].status === 'fulfilled') sharedTools = results[6].value;
   if (results[0].status === 'rejected') state.noticeError = String(results[0].reason);
   if (results[1].status === 'rejected') state.fileError = String(results[1].reason);
+  if (results[5].status === 'rejected') state.todoError = String(results[5].reason);
+  if (results[6].status === 'rejected') state.toolsError = String(results[6].reason);
   render();
 }
 init();

@@ -36,6 +36,42 @@ npm run preview
 
 编辑 `public/data/notices.json`。每条通知包含 `id`、`title`、`date`（`YYYY-MM-DD`）、`category`、`important` 和 `body`。重要通知置顶，其余按日期倒序。直接提交 JSON 即可通过 Actions 更新站点，不需在线管理后台。
 
+### 待办清单
+
+编辑 `public/data/todos.json`，像通知一样在数组中添加事项。每项包含唯一的 `id`、`content`（内容）、`requirements`（要求）、`startAt`（开始时间）、`dueAt`（截止时间）和 `details`（详情正文）。建议时间使用 `YYYY-MM-DD HH:mm` 格式；列表按截止时间升序显示。首页展示最近 5 项，点击“查看详情”进入独立详情页。示例：
+
+```json
+[
+  {
+    "id": "example-task",
+    "content": "事项名称",
+    "requirements": "需要完成的要求",
+    "startAt": "2026-10-12 09:00",
+    "dueAt": "2026-10-20 18:00",
+    "details": "更完整的说明，支持用换行分段。"
+  }
+]
+```
+
+### 工具分享
+
+编辑 `public/data/tools.json`，在数组中添加想分享的工具。每项包含唯一的 `id`、`title`、`date`（`YYYY-MM-DD`）、`category`、`description` 和 `url`。首页展示最近 3 项，工具分享页展示全部，按日期倒序。`url` 只接受 `https://` 或 `http://` 链接。示例：
+
+```json
+[
+  {
+    "id": "example-tool",
+    "title": "工具名称",
+    "date": "2026-10-12",
+    "category": "学习工具",
+    "description": "工具的用途和推荐理由。",
+    "url": "https://example.com"
+  }
+]
+```
+
+目前两个数据文件都是空数组，可以直接填入真实内容后提交更新。静态站点本身没有在线管理后台，修改只会在发布新版本后对所有访客生效。
+
 ### 文件下载
 
 把经确认可公开的文件加入 `document/`，运行 `npm run prepare:data` 或 `npm run build`。脚本递归扫描、保留中文和空格文件名、跳过隐藏/临时文件，把可公开文件复制到 `public/downloads/`，生成 `public/data/files.json`。网页链接逐段 URL 编码，支持 GitHub Pages 项目子路径。
@@ -85,7 +121,7 @@ GitHub Pages 是公开站点，且在中国大陆的访问稳定性可能受网�
 | `src/main.ts` | 页面交互、数据加载、地图与 PNG 导出 |
 | `src/navigation/core.ts` | 房号搜索、最短路、验证门槛与楼层分段 |
 | `src/styles.css` | 响应式界面和深色模式 |
-| `public/data/` | 通知、文件索引、房间、楼层和路径图 |
+| `public/data/` | 通知、待办、工具分享、文件索引、房间、楼层和路径图 |
 | `public/maps/` | 从 PDF 生成的六层 WebP 地图 |
 | `scripts/` | 地图处理与文件清单构建 |
 | `tools/editor.html` | 只在本地开发服务器使用的校对工具 |

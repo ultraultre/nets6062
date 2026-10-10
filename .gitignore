@@ -2,3 +2,6 @@ node_modules/
 dist/
 .vite/
 map-contact.png
+
+# Local maintenance notes and backups; never include in normal Git commits.
+/.local-maintenance/

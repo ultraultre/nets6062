@@ -29,12 +29,24 @@ it('updates task pages and the file archive at the UTC+8 deadline without a relo
     },
   });
   const todo = { id: 'task', content: '报名', requirements: '提交', startAt: '2026-10-20 09:00', dueAt: '2026-10-20 18:00', details: '详情' };
+  const todos = Array.from({ length: 7 }, (_, i) => ({ ...todo, id: i === 0 ? 'task' : `task-${i}`, content: `待办事项${i}` }));
+  const notices = Array.from({ length: 7 }, (_, i) => ({ id: `notice-${i}`, title: `通知标题${i}`, date: `2026-10-${String(10 + i).padStart(2, '0')}`, category: '通知', important: i === 0, body: '说明' }));
   const files = [{ name: '报名.docx', relativePath: '报名.docx', extension: 'docx', size: 100, category: '文档', dueAt: todo.dueAt }, { name: '说明.pdf', relativePath: '说明.pdf', extension: 'pdf', size: 100, category: '文档', dueAt: null }];
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, json: async () => url.endsWith('todos.json') ? [todo] : url.endsWith('files.json') ? files : url.endsWith('graph.json') ? { nodes: [], edges: [] } : [] })));
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, json: async () => url.endsWith('todos.json') ? todos : url.endsWith('notices.json') ? notices : url.endsWith('files.json') ? files : url.endsWith('graph.json') ? { nodes: [], edges: [] } : [] })));
   await import('../src/main');
   await vi.advanceTimersByTimeAsync(0);
   expect(app.innerHTML).toContain('进行中');
   expect(app.innerHTML).toContain('UTC+8');
+  location.hash = '#home'; windowHandlers.hashchange();
+  for (const item of todos) expect(app.innerHTML).toContain(item.content);
+  expect(app.innerHTML.match(/data-todo="/g)).toHaveLength(7);
+  expect(app.innerHTML.match(/data-notice="/g)).toHaveLength(5);
+  for (let i = 2; i < 7; i++) expect(app.innerHTML).toContain(notices[i].title);
+  expect(app.innerHTML).not.toContain(notices[0].title);
+  expect(app.innerHTML).not.toContain(notices[1].title);
+  expect(app.innerHTML.indexOf(notices[6].title)).toBeLessThan(app.innerHTML.indexOf(notices[5].title));
+  location.hash = '#todos'; windowHandlers.hashchange();
+  for (const item of todos) expect(app.innerHTML).toContain(item.content);
   await vi.advanceTimersByTimeAsync(1000);
   expect(app.innerHTML).toContain('已经结束');
   location.hash = '#todo/task'; windowHandlers.hashchange();

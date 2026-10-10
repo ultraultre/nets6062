@@ -13,7 +13,7 @@ let notices: Notice[] = [], todos: Todo[] = [], sharedTools: SharedTool[] = [], 
 const pathMap: Record<string, Page> = { home: 'home', notices: 'notices', files: 'files', map: 'map', todos: 'todos', todo: 'todo', tools: 'tools' };
 
 async function json<T>(path: string): Promise<T> {
-  const response = await fetch(assetUrl(path));
+  const response = await fetch(assetUrl(path), { cache: 'no-cache' });
   if (!response.ok) throw new Error(`${path} 加载失败（${response.status}）`);
   return response.json() as Promise<T>;
 }
@@ -46,11 +46,11 @@ function toolCard(tool: SharedTool) {
 }
 
 function home() {
-  const pinned = notices.filter(n => n.important).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 2);
+  const recentNotices = [...notices].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   const activeFiles = partitionFiles(files).active;
   layout(`<section class="hero"><div class="hero-content"><span class="hero-kicker"><i></i> S6062服务平台</span><h1>通知 · 文件<br><span>还有地图</span></h1><p>今天也别忘了看通知呀 ( •̀ ω •́ )✧</p><div class="hero-actions"><button class="btn btn-primary" data-page="notices">查看通知 <span>↗</span></button><button class="btn btn-light" data-page="map">打开地图 <span>→</span></button></div></div><div class="hero-art" aria-hidden="true"><div class="art-ring ring-a"></div><div class="art-ring ring-b"></div><div class="art-card art-card-1"><span>◈</span><div>通知公告<small>谁又没看通知 (¬‿¬)</small></div></div><div class="art-card art-card-2"><span>⌖</span><div>躬行楼地图<small>走走走，别迷路 (ง •̀_•́)ง</small></div></div><div class="art-card art-card-3"><span>⇩</span><div>文件中心<small>需要就拿走 (๑•̀ㅂ•́)و✧</small></div></div></div></section>
-  <section class="section home-todos"><div class="section-title"><div><h2>你可能的待办清单</h2><p class="section-note">ddl战神出列！(｀・ω・´)ゞ</p></div><button class="text-link" data-page="todos">全部待办 →</button></div>${state.todoError ? empty(h(state.todoError)) : todos.length ? todoTable(sortedTodos().slice(0, 5)) : empty('暂无待办事项')}</section>
-  <section class="section two-col"><div><div class="section-title"><div><h2>通知</h2><p class="section-note">谁又没看通知 (¬‿¬)</p></div><button class="text-link" data-page="notices">全部通知 →</button></div>${pinned.length ? pinned.map(noticeCard).join('') : empty('暂无重要通知')}</div><div class="feature-card"><span class="feature-icon">⌖</span><h2>躬行楼<br>室内地图</h2><p>别迷路啦 (ง •̀_•́)ง</p><button class="btn btn-white" data-page="map">打开地图 <span>→</span></button><div class="feature-lines"></div></div></section>
+  <section class="section home-todos"><div class="section-title"><div><h2>你可能的待办清单</h2><p class="section-note">ddl战神出列！(｀・ω・´)ゞ</p></div><button class="text-link" data-page="todos">全部待办 →</button></div>${state.todoError ? empty(h(state.todoError)) : todos.length ? todoTable(sortedTodos()) : empty('暂无待办事项')}</section>
+  <section class="section two-col"><div><div class="section-title"><div><h2>通知</h2><p class="section-note">谁又没看通知 (¬‿¬)</p></div><button class="text-link" data-page="notices">全部通知 →</button></div>${recentNotices.length ? recentNotices.map(noticeCard).join('') : empty('暂无通知')}</div><div class="feature-card"><span class="feature-icon">⌖</span><h2>躬行楼<br>室内地图</h2><p>别迷路啦 (ง •̀_•́)ง</p><button class="btn btn-white" data-page="map">打开地图 <span>→</span></button><div class="feature-lines"></div></div></section>
   <section class="section"><div class="section-title"><div><h2>文件下载</h2><p class="section-note">需要就拿走 (๑•̀ㅂ•́)و✧</p></div><button class="text-link" data-page="files">全部文件 →</button></div><div class="file-preview">${activeFiles.length ? activeFiles.slice(0, 3).map(f => `<div class="preview-row"><span class="file-icon">${icon(f.extension)}</span><span><strong>${h(f.name)}</strong><small>${h(f.category)} · ${humanSize(f.size)} &middot; ${fileDeadline(f)}</small></span><a href="${assetUrl(`downloads/${f.relativePath}`)}" download="${h(f.name)}" aria-label="下载${h(f.name)}">⇩</a></div>`).join('') : empty('暂无可公开的文件')}</div></section>
   <section class="section"><div class="section-title"><div><h2>工具分享</h2><p class="section-note">AI工具精选（真精选么）</p></div><button class="text-link" data-page="tools">全部工具 →</button></div>${state.toolsError ? empty(h(state.toolsError)) : sharedTools.length ? `<div class="tool-grid">${[...sharedTools].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map(toolCard).join('')}</div>` : empty('暂无工具分享')}</section>
   <div class="home-signoff">今天也辛苦啦 ( ´ ▽ ｀ )ﾉ</div>`);
